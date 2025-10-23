@@ -42,9 +42,7 @@
 
 Система построена на современной и масштабируемой архитектуре "Backend-as-a-Service" (BaaS).
 
-<p align="center">
-  <img src="URL_К_ДИАГРАММЕ_АРХИТЕКТУРЫ" alt="Диаграмма архитектуры TaskMaster AI" width="700"/>
-</p>
+
 
 *   **Клиент (Frontend):**
     *   **[React Native](https://reactnative.dev/):** Основа для создания нативного UI.

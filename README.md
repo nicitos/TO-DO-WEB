@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="URL_ВАШЕГО_ЛОГОТИПА" alt="TaskMaster AI Logo" width="150"/>
+
   <h1>TaskMaster AI</h1>
   <p>
     <strong>Интеллектуальный менеджер задач для повышения личной продуктивности и предотвращения выгорания.</strong>

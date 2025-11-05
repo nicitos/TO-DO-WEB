@@ -170,7 +170,7 @@ interface CreateTaskData {
 }
 ```
 ### 🔗 Полезные ссылки
-Документация Expo
-Документация Supabase
-Документация Google AI
-React Native
+- [Документация Expo](https://www.google.com/url?sa=E&q=https%3A%2F%2Fdocs.expo.dev%2F)
+- [Документация Supabase](https://www.google.com/url?sa=E&q=https%3A%2F%2Fsupabase.com%2Fdocs)
+- [Документация Google AI](https://www.google.com/url?sa=E&q=https%3A%2F%2Fai.google.dev%2Fdocs)
+- [React Native](https://www.google.com/url?sa=E&q=https%3A%2F%2Freactnative.dev%2Fdocs%2Fgetting-started)

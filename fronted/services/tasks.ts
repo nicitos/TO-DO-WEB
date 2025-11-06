@@ -1,8 +1,6 @@
-// services/tasks.ts -- ПОЛНЫЙ КОД С ЛОГАМИ
+// services/tasks.ts -- ПОЛНЫЙ КОД С ИСПРАВЛЕННЫМ ИМПОРТОМ
 
-// frontend/services/tasks.ts -- ПОЛНЫЙ КОД
-
-import { supabase } from '@/lib/supabase'; // <-- ИЗМЕНЕН ИМПОРТ
+import { supabase } from '@/lib/supabase'; // <-- ИСПРАВЛЕНИЕ ЗДЕСЬ
 import { Task, CreateTaskData, UpdateTaskData, BurnoutScore, AIConversation } from '@/types/tasks';
 
 const sanitizeDates = (taskData: Partial<CreateTaskData> | Partial<UpdateTaskData>) => {
@@ -23,7 +21,6 @@ export const taskService = {
   },
 
   async createTask(taskData: CreateTaskData): Promise<{ data: Task | null; error: string | null }> {
-    console.log('[LOG] services/tasks.ts: Вызвана createTask с данными:', taskData);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { data: null, error: 'User not authenticated' };
@@ -39,7 +36,6 @@ export const taskService = {
   },
 
   async getTasksByDateRange(startDate: string, endDate: string): Promise<{ data: Task[] | null; error: string | null }> {
-    console.log(`[LOG] services/tasks.ts: Вызвана getTasksByDateRange с ${startDate} по ${endDate}`);
     try {
       const { data, error } = await supabase.from('tasks').select('*').gte('scheduled_date', startDate).lte('scheduled_date', endDate).order('scheduled_date', { ascending: true });
       if (error) { console.error("Error fetching tasks by date range:", error); return { data: null, error: error.message }; }
@@ -50,7 +46,6 @@ export const taskService = {
   },
 
   async updateTask(id: string, updates: UpdateTaskData): Promise<{ data: Task | null; error: string | null }> {
-    console.log(`[LOG] services/tasks.ts: Вызвана updateTask для ID ${id} с обновлениями:`, updates);
     try {
       const cleanUpdates = sanitizeDates(updates);
       const { data, error } = await supabase.from('tasks').update({ ...cleanUpdates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
@@ -62,7 +57,6 @@ export const taskService = {
   },
 
   async deleteTask(id: string): Promise<{ error: string | null }> {
-    console.log(`[LOG] services/tasks.ts: Вызвана deleteTask для ID ${id}`);
     try {
       const { error } = await supabase.from('tasks').delete().eq('id', id);
       if (error) { return { error: error.message }; }
@@ -72,14 +66,23 @@ export const taskService = {
     }
   },
 
-  async getBurnoutScores(weekStart: string): Promise<{ data: BurnoutScore[] | null; error: string | null }> {
-    console.log(`[LOG] services/tasks.ts: Вызвана getBurnoutScores для недели, начинающейся с: ${weekStart}`);
+  async getBurnoutScores(weekStart: string): Promise<{ data: Omit<BurnoutScore, 'id'|'user_id'|'week_start'|'updated_at'>[] | null; error: string | null }> {
     try {
-      const { data, error } = await supabase.rpc('get_burnout_scores_for_week', { p_week_start: weekStart });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { data: [], error: null };
+      }
+
+      const { data, error } = await supabase.rpc('get_burnout_scores_for_week', {
+        p_user_id: user.id,
+        p_week_start: weekStart
+      });
+
       if (error) {
         console.error("[ERROR] services/tasks.ts: Ошибка при вызове RPC get_burnout_scores_for_week:", error);
         return { data: null, error: error.message };
       }
+
       console.log('[LOG] services/tasks.ts: Получен ответ от RPC:', data);
       return { data: data || [], error: null };
     } catch (err) {
@@ -90,15 +93,8 @@ export const taskService = {
 
   async getTasks(): Promise<{ data: Task[] | null; error: string | null }> {
     try {
-      const { data, error } = await supabase
-          .from('tasks')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-      if (error) {
-        return { data: null, error: error.message };
-      }
-
+      const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+      if (error) { return { data: null, error: error.message }; }
       return { data: data || [], error: null };
     } catch (err) {
       return { data: null, error: 'Failed to fetch tasks' };
@@ -108,25 +104,9 @@ export const taskService = {
   async saveConversation(message: string, response: string, context?: any): Promise<{ data: AIConversation | null; error: string | null }> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { data: null, error: 'User not authenticated' };
-      }
-
-      const { data, error } = await supabase
-          .from('ai_conversations')
-          .insert([{
-            user_id: user.id,
-            message,
-            response,
-            context
-          }])
-          .select()
-          .single();
-
-      if (error) {
-        return { data: null, error: error.message };
-      }
-
+      if (!user) { return { data: null, error: 'User not authenticated' }; }
+      const { data, error } = await supabase.from('ai_conversations').insert([{ user_id: user.id, message, response, context }]).select().single();
+      if (error) { return { data: null, error: error.message }; }
       return { data, error: null };
     } catch (err) {
       return { data: null, error: 'Failed to save conversation' };
@@ -135,16 +115,8 @@ export const taskService = {
 
   async getConversationHistory(limit: number = 10): Promise<{ data: AIConversation[] | null; error: string | null }> {
     try {
-      const { data, error } = await supabase
-          .from('ai_conversations')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(limit);
-
-      if (error) {
-        return { data: null, error: error.message };
-      }
-
+      const { data, error } = await supabase.from('ai_conversations').select('*').order('created_at', { ascending: false }).limit(limit);
+      if (error) { return { data: null, error: error.message }; }
       return { data: data || [], error: null };
     } catch (err) {
       return { data: null, error: 'Failed to fetch conversation history' };

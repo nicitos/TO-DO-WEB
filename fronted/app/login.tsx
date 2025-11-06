@@ -1,17 +1,15 @@
-// frontend/app/login.tsx -- ПОЛНЫЙ КОД
-
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase'; // <-- Новый импорт
-import { showAlert } from '@/lib/alert';   // <-- Новый импорт
+import { supabase } from '@/lib/supabase';
+import { showAlert } from '@/lib/alert';
 import { useRouter } from 'expo-router';
 
 export default function AuthScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  
+
   const [mode, setMode] = useState<'login' | 'register' | 'otp'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,9 +29,9 @@ export default function AuthScreen() {
     });
     setLoading(false);
     if (error) {
-      showAlert('Ошибка входа', error.message);
+      showAlert('Ошибка входа', 'Неверный email или пароль.');
     } else {
-      router.replace('/(tabs)'); // Перенаправляем на главный экран
+      router.replace('/(tabs)');
     }
   };
 
@@ -50,24 +48,45 @@ export default function AuthScreen() {
       showAlert('Ошибка', 'Пароль должен быть не менее 6 символов');
       return;
     }
+
     setLoading(true);
-    // Сначала регистрируем пользователя
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+
+    // Шаг 1: Проверяем, существует ли пользователь, ВЫЗЫВАЯ НАШУ RPC-ФУНКЦИЮ
+    const { data: userExists, error: checkError } = await supabase.rpc('check_if_user_exists', {
+      p_email: email.trim()
+    });
+
+    if (checkError) {
+      setLoading(false);
+      showAlert('Ошибка сервера', 'Не удалось проверить пользователя. Попробуйте снова.');
+      console.error(checkError);
+      return;
+    }
+
+    // Шаг 2: Если пользователь существует, выдаем ошибку и останавливаемся
+    if (userExists) {
+      setLoading(false);
+      showAlert('Ошибка регистрации', 'Пользователь с таким email уже существует. Попробуйте войтицw.');
+      return;
+    }
+
+    // Шаг 3: Если пользователя нет, продолжаем регистрацию
+    const { data: { user }, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password: password,
     });
 
+    setLoading(false);
+
     if (signUpError) {
-      setLoading(false);
       showAlert('Ошибка регистрации', signUpError.message);
       return;
     }
 
-    if (signUpData.user) {
-        setMode('otp');
-        showAlert('Код отправлен', 'Мы отправили код подтверждения на вашу почту.');
+    if (user) {
+      setMode('otp');
+      showAlert('Код отправлен', 'Мы отправили код подтверждения на вашу почту.');
     }
-    setLoading(false);
   };
 
   const handleVerifyOTP = async () => {
@@ -79,14 +98,14 @@ export default function AuthScreen() {
     const { error } = await supabase.auth.verifyOtp({
       email: email.trim(),
       token: otp,
-      type: 'signup', // Указываем, что это код для подтверждения регистрации
+      type: 'signup',
     });
     setLoading(false);
     if (error) {
-      showAlert('Ошибка верификации', error.message);
+      showAlert('Ошибка верификации', 'Неверный код подтверждения.');
     } else {
-      showAlert('Успех!', 'Ваш аккаунт успешно подтвержден. Теперь вы можете войти.');
-      setMode('login'); // Переключаем на экран входа
+      showAlert('Успех!', 'Ваш аккаунт подтвержден. Теперь, пожалуйста, войдите, используя ваш пароль.');
+      resetForm();
     }
   };
 
@@ -100,43 +119,44 @@ export default function AuthScreen() {
 
   const renderContent = () => {
     if (loading) {
-        return <ActivityIndicator size="large" color="#1976D2" style={{ marginTop: 48 }} />;
+      return <ActivityIndicator size="large" color="#1976D2" style={{ marginTop: 48 }} />;
     }
     if (mode === 'login') return renderLoginForm();
     if (mode === 'register') return renderRegisterForm();
     if (mode === 'otp') return renderOTPForm();
+    return null;
   };
-  
+
   const renderLoginForm = () => (
-    <>
-      <View style={styles.inputContainer}><MaterialIcons name="email" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" /></View>
-      <View style={styles.inputContainer}><MaterialIcons name="lock" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoComplete="password" /><TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}><MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#757575" /></TouchableOpacity></View>
-      <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}><Text style={styles.primaryButtonText}>Войти</Text></TouchableOpacity>
-      <TouchableOpacity style={styles.switchModeButton} onPress={() => setMode('register')}><Text style={styles.switchModeText}>Нет аккаунта? <Text style={styles.linkText}>Зарегистрироваться</Text></Text></TouchableOpacity>
-    </>
+      <>
+        <View style={styles.inputContainer}><MaterialIcons name="email" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" /></View>
+        <View style={styles.inputContainer}><MaterialIcons name="lock" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoComplete="password" /><TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}><MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#757575" /></TouchableOpacity></View>
+        <TouchableOpacity style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={handleLogin} disabled={loading}><Text style={styles.primaryButtonText}>{loading ? 'Вход...' : 'Войти'}</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.switchModeButton} onPress={() => setMode('register')}><Text style={styles.switchModeText}>Нет аккаунта? <Text style={styles.linkText}>Зарегистрироваться</Text></Text></TouchableOpacity>
+      </>
   );
 
   const renderRegisterForm = () => (
-    <>
-      <View style={styles.inputContainer}><MaterialIcons name="email" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" /></View>
-      <View style={styles.inputContainer}><MaterialIcons name="lock" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoComplete="new-password" /><TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}><MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#757575" /></TouchableOpacity></View>
-      <View style={styles.inputContainer}><MaterialIcons name="lock" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} autoComplete="new-password" /></View>
-      <TouchableOpacity style={styles.primaryButton} onPress={handleRegister}><Text style={styles.primaryButtonText}>Создать аккаунт</Text></TouchableOpacity>
-      <TouchableOpacity style={styles.switchModeButton} onPress={() => setMode('login')}><Text style={styles.switchModeText}>Уже есть аккаунт? <Text style={styles.linkText}>Войти</Text></Text></TouchableOpacity>
-    </>
+      <>
+        <View style={styles.inputContainer}><MaterialIcons name="email" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" /></View>
+        <View style={styles.inputContainer}><MaterialIcons name="lock" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoComplete="new-password" /><TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}><MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#757575" /></TouchableOpacity></View>
+        <View style={styles.inputContainer}><MaterialIcons name="lock" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} autoComplete="new-password" /></View>
+        <TouchableOpacity style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={handleRegister} disabled={loading}><Text style={styles.primaryButtonText}>{loading ? 'Создание...' : 'Создать аккаунт'}</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.switchModeButton} onPress={() => setMode('login')}><Text style={styles.switchModeText}>Уже есть аккаунт? <Text style={styles.linkText}>Войти</Text></Text></TouchableOpacity>
+      </>
   );
 
   const renderOTPForm = () => (
-    <>
-      <View style={styles.otpContainer}><MaterialIcons name="mail-outline" size={48} color="#1976D2" /><Text style={styles.otpTitle}>Проверьте вашу почту</Text><Text style={styles.otpSubtitle}>Мы отправили код подтверждения на {email}</Text></View>
-      <View style={styles.inputContainer}><MaterialIcons name="security" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Введите код" value={otp} onChangeText={setOtp} keyboardType="number-pad" maxLength={6} /></View>
-      <TouchableOpacity style={styles.primaryButton} onPress={handleVerifyOTP}><Text style={styles.primaryButtonText}>Подтвердить</Text></TouchableOpacity>
-      <TouchableOpacity style={styles.switchModeButton} onPress={resetForm}><Text style={styles.switchModeText}><Text style={styles.linkText}>Назад ко входу</Text></Text></TouchableOpacity>
-    </>
+      <>
+        <View style={styles.otpContainer}><MaterialIcons name="mail-outline" size={48} color="#1976D2" /><Text style={styles.otpTitle}>Проверьте вашу почту</Text><Text style={styles.otpSubtitle}>Мы отправили код подтверждения на {email}</Text></View>
+        <View style={styles.inputContainer}><MaterialIcons name="security" size={20} color="#757575" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Введите код" value={otp} onChangeText={setOtp} keyboardType="number-pad" maxLength={6} /></View>
+        <TouchableOpacity style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={handleVerifyOTP} disabled={loading}><Text style={styles.primaryButtonText}>{loading ? 'Подтверждение...' : 'Подтвердить'}</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.switchModeButton} onPress={resetForm}><Text style={styles.switchModeText}><Text style={styles.linkText}>Назад ко входу</Text></Text></TouchableOpacity>
+      </>
   );
 
   return (
-    <SafeAreaView style={styles.container}><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}><ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}><View style={styles.header}><MaterialIcons name="check-circle" size={64} color="#1976D2" /><Text style={styles.appTitle}>TaskMaster AI</Text><Text style={styles.appSubtitle}>{mode === 'otp' ? 'Подтверждение почты' : mode === 'register' ? 'Создание аккаунта' : 'С возвращением!'}</Text></View><View style={styles.form}>{renderContent()}</View></ScrollView></KeyboardAvoidingView></SafeAreaView>
+      <SafeAreaView style={styles.container}><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}><ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}><View style={styles.header}><MaterialIcons name="check-circle" size={64} color="#1976D2" /><Text style={styles.appTitle}>TaskMaster AI</Text><Text style={styles.appSubtitle}>{mode === 'otp' ? 'Подтверждение почты' : mode === 'register' ? 'Создание аккаунта' : 'С возвращением!'}</Text></View><View style={styles.form}>{renderContent()}</View></ScrollView></KeyboardAvoidingView></SafeAreaView>
   );
 }
 

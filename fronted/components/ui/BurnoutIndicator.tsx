@@ -6,42 +6,50 @@ interface BurnoutIndicatorProps {
   style?: any;
 }
 
+// Устанавливаем максимальный "вес" дня. Теперь это 20.
+const MAX_BURNOUT_SCORE = 20;
+
 export function BurnoutIndicator({ score, style }: BurnoutIndicatorProps) {
-  const getBurnoutColor = (score: number): string => {
-    if (score <= 1.5) return '#4CAF50'; // Green - Low
-    if (score <= 3.0) return '#FFC107'; // Yellow - Medium
-    if (score <= 4.5) return '#FF9800'; // Orange - High
-    return '#F44336'; // Red - Critical
+  const getBurnoutColor = (currentScore: number): string => {
+    const percentage = currentScore / MAX_BURNOUT_SCORE;
+    if (percentage <= 0.25) return '#4CAF50'; // Green - до 25%
+    if (percentage <= 0.5) return '#FFC107'; // Yellow - до 50%
+    if (percentage <= 0.75) return '#FF9800'; // Orange - до 75%
+    return '#F44336'; // Red - выше 75%
   };
 
-  const getBurnoutLabel = (score: number): string => {
-    if (score <= 1.5) return 'Relaxed';
-    if (score <= 3.0) return 'Balanced';
-    if (score <= 4.5) return 'Busy';
+  const getBurnoutLabel = (currentScore: number): string => {
+    const percentage = currentScore / MAX_BURNOUT_SCORE;
+    if (percentage <= 0.25) return 'Relaxed';
+    if (percentage <= 0.5) return 'Balanced';
+    if (percentage <= 0.75) return 'Busy';
     return 'Overloaded';
   };
 
-  const fillWidth = Math.min((score / 5) * 100, 100);
+  // ====================== КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ ЗДЕСЬ ======================
+  // Теперь мы делим текущий балл на 20, а не на 5.
+  const fillWidth = Math.min((score / MAX_BURNOUT_SCORE) * 100, 100);
+  // =======================================================================
 
   return (
-    <View style={[styles.container, style]}>
-      <View style={styles.barContainer}>
-        <View style={styles.barBackground}>
-          <View 
-            style={[
-              styles.barFill, 
-              { 
-                width: `${fillWidth}%`, 
-                backgroundColor: getBurnoutColor(score) 
-              }
-            ]} 
-          />
+      <View style={[styles.container, style]}>
+        <View style={styles.barContainer}>
+          <View style={styles.barBackground}>
+            <View
+                style={[
+                  styles.barFill,
+                  {
+                    width: `${fillWidth}%`,
+                    backgroundColor: getBurnoutColor(score)
+                  }
+                ]}
+            />
+          </View>
         </View>
+        <Text style={[styles.label, { color: getBurnoutColor(score) }]}>
+          {getBurnoutLabel(score)}
+        </Text>
       </View>
-      <Text style={[styles.label, { color: getBurnoutColor(score) }]}>
-        {getBurnoutLabel(score)}
-      </Text>
-    </View>
   );
 }
 
@@ -63,7 +71,7 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 3,
-    transition: 'width 0.3s ease',
+    // Убрал transition, он может не работать в React Native
   },
   label: {
     fontSize: 10,
